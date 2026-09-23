@@ -1,0 +1,237 @@
+@model SoporteColegio.ViewModels.TecnicoPanelViewModel
+@{
+    ViewData["Title"] = "Panel técnico";
+    var pendientes = Model.Tickets.Count(ticket => ticket.Estado == "Pendiente");
+    var enProceso = Model.Tickets.Count(ticket => ticket.Estado == "En proceso");
+    var resueltos = Model.Tickets.Count(ticket => ticket.Estado == "Resuelto");
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] | Soporte Colegio</title>
+    <style>
+        :root {
+            --ink: #17242b;
+            --muted: #6c7b80;
+            --paper: #eef2ef;
+            --panel: #ffffff;
+            --line: #d7dfdb;
+            --teal: #087f78;
+            --teal-dark: #075e5a;
+            --coral: #e8775d;
+            --amber: #c48422;
+            --shadow: 0 12px 30px rgba(29, 55, 56, .09);
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: var(--ink); background: var(--paper); font-family: Arial, sans-serif; }
+        main { width: min(100% - 32px, 1120px); margin: 0 auto; padding: 28px 0 54px; }
+        .topline, .heading, .toolbar, .ticket-head, .ticket-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .topline { margin-bottom: 50px; }
+        .brand { font: 700 13px Georgia, serif; letter-spacing: .08em; text-transform: uppercase; }
+        .live { display: inline-flex; align-items: center; gap: 8px; color: var(--teal); font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+        .live::before { width: 8px; height: 8px; border-radius: 50%; background: #49b76d; box-shadow: 0 0 0 4px rgba(73,183,109,.15); content: ''; }
+        h1 { margin: 0; font: 500 clamp(36px, 6vw, 64px)/.95 Georgia, serif; letter-spacing: -.04em; }
+        .subtitle { max-width: 360px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+        .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 32px 0 28px; }
+        .metric { padding: 18px 20px; background: var(--panel); border: 1px solid var(--line); }
+        .metric strong { display: block; margin-bottom: 4px; font: 500 36px Georgia, serif; }
+        .metric span { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+        .metric.pending strong { color: var(--coral); }
+        .metric.progress strong { color: var(--amber); }
+        .metric.done strong { color: var(--teal); }
+        .toolbar { margin-bottom: 14px; }
+        .toolbar h2 { margin: 0; font: 700 14px Arial, sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+        .filters { display: flex; gap: 6px; }
+        .filter { padding: 9px 12px; border: 1px solid var(--line); border-radius: 20px; color: var(--muted); background: transparent; cursor: pointer; font-size: 12px; font-weight: 700; }
+        .filter.active, .filter:hover { border-color: var(--teal); color: white; background: var(--teal); }
+        .tickets { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+        .ticket { padding: 20px; background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow); animation: appear .3s ease both; }
+        .ticket.is-hidden { display: none; }
+        .ticket-head { align-items: flex-start; }
+        .ticket-id { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+        .status { padding: 6px 9px; border-radius: 14px; font-size: 11px; font-weight: 700; }
+        .status.pendiente { color: #a64d37; background: #fff0e9; }
+        .status.en-proceso { color: #916317; background: #fff6dc; }
+        .status.resuelto { color: var(--teal-dark); background: #e5f3eb; }
+        .room { margin: 24px 0 6px; font: 500 26px/1.05 Georgia, serif; }
+        .problem { margin: 0; font-size: 14px; line-height: 1.45; }
+        .detail { margin: 16px 0 0; padding: 12px; color: var(--muted); background: #f5f7f5; font-size: 13px; line-height: 1.45; }
+        .ticket-foot { align-items: flex-end; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--line); }
+        .date { color: var(--muted); font-size: 11px; }
+        .state-select { min-height: 34px; padding: 0 8px; border: 1px solid var(--line); color: var(--ink); background: white; font-size: 12px; }
+        .empty { grid-column: 1 / -1; padding: 48px 20px; border: 1px dashed #b9c8c2; color: var(--muted); text-align: center; }
+        .toast { position: fixed; right: 20px; bottom: 20px; max-width: 320px; padding: 14px 16px; color: white; background: var(--teal-dark); box-shadow: var(--shadow); font-size: 13px; animation: appear .25s ease both; }
+        @@keyframes appear { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @@media (max-width: 620px) {
+            main { width: min(100% - 24px, 1120px); padding-top: 18px; }
+            .topline { margin-bottom: 36px; }
+            .heading { display: block; }
+            .subtitle { margin-top: 16px; }
+            .metrics { gap: 8px; }
+            .metric { padding: 14px 12px; }
+            .metric strong { font-size: 28px; }
+            .metric span { font-size: 10px; }
+            .toolbar { display: block; }
+            .filters { margin-top: 12px; overflow-x: auto; padding-bottom: 3px; }
+            .filter { flex: 0 0 auto; }
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <div class="topline">
+            <span class="brand">Soporte colegio / Técnico</span>
+            <span class="live">En vivo</span>
+        </div>
+
+        <div class="heading">
+            <h1>Reportes de hoy</h1>
+            <p class="subtitle">Los avisos nuevos aparecerán aquí automáticamente. Atiende primero los que siguen pendientes.</p>
+        </div>
+
+        <section class="metrics" aria-label="Resumen de reportes">
+            <div class="metric pending"><strong id="pending-count">@pendientes</strong><span>Pendientes</span></div>
+            <div class="metric progress"><strong id="progress-count">@enProceso</strong><span>En proceso</span></div>
+            <div class="metric done"><strong id="done-count">@resueltos</strong><span>Resueltos</span></div>
+        </section>
+
+        <div class="toolbar">
+            <h2>Actividad reciente</h2>
+            <div class="filters" role="group" aria-label="Filtrar reportes">
+                <button class="filter active" data-filter="Todos" type="button">Todos</button>
+                <button class="filter" data-filter="Pendiente" type="button">Pendientes</button>
+                <button class="filter" data-filter="En proceso" type="button">En proceso</button>
+                <button class="filter" data-filter="Resuelto" type="button">Resueltos</button>
+            </div>
+        </div>
+
+        <section id="ticket-list" class="tickets" aria-live="polite">
+            @if (Model.Tickets.Count == 0)
+            {
+                <div class="empty" id="empty-state">No hay reportes registrados todavía.</div>
+            }
+            @foreach (var ticket in Model.Tickets)
+            {
+                <article class="ticket" data-ticket-id="@ticket.Id" data-status="@ticket.Estado">
+                    <div class="ticket-head">
+                        <span class="ticket-id">AVISO #@ticket.Id</span>
+                        <span class="status @ticket.Estado.ToLowerInvariant().Replace(" ", "-")">@ticket.Estado</span>
+                    </div>
+                    <h3 class="room">@(ticket.Sala?.Nombre ?? "Sala no disponible")</h3>
+                    <p class="problem"><strong>@(ticket.FallaComun?.Equipo ?? "Equipo"):</strong> @(ticket.FallaComun?.Descripcion ?? "Problema no disponible")</p>
+                    @if (!string.IsNullOrWhiteSpace(ticket.DetalleAdicional))
+                    {
+                        <p class="detail">@ticket.DetalleAdicional</p>
+                    }
+                    <div class="ticket-foot">
+                        <span class="date">@ticket.FechaReporte.ToString("dd/MM/yyyy HH:mm")</span>
+                        <select class="state-select" aria-label="Cambiar estado del aviso @ticket.Id">
+                            @foreach (var estado in new[] { "Pendiente", "En proceso", "Resuelto" })
+                            {
+                                <option selected="@(ticket.Estado == estado)" value="@estado">@estado</option>
+                            }
+                        </select>
+                    </div>
+                </article>
+            }
+        </section>
+    </main>
+
+    <form id="anti-forgery-form" hidden>@Html.AntiForgeryToken()</form>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script>
+        const list = document.getElementById('ticket-list');
+        const emptyState = document.getElementById('empty-state');
+        const token = document.querySelector('#anti-forgery-form input[name="__RequestVerificationToken"]').value;
+        let activeFilter = 'Todos';
+
+        const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+        const statusClass = status => status.toLowerCase().replaceAll(' ', '-');
+        const formatDate = value => new Date(value).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' });
+
+        function updateMetrics() {
+            const cards = [...document.querySelectorAll('.ticket')];
+            const count = status => cards.filter(card => card.dataset.status === status).length;
+            document.getElementById('pending-count').textContent = count('Pendiente');
+            document.getElementById('progress-count').textContent = count('En proceso');
+            document.getElementById('done-count').textContent = count('Resuelto');
+        }
+
+        function applyFilter() {
+            document.querySelectorAll('.ticket').forEach(card => {
+                card.classList.toggle('is-hidden', activeFilter !== 'Todos' && card.dataset.status !== activeFilter);
+            });
+        }
+
+        function createTicketCard(ticket) {
+            const article = document.createElement('article');
+            article.className = 'ticket';
+            article.dataset.ticketId = ticket.id;
+            article.dataset.status = ticket.estado;
+            article.innerHTML = `
+                <div class="ticket-head"><span class="ticket-id">AVISO #${escapeHtml(ticket.id)}</span><span class="status ${statusClass(ticket.estado)}">${escapeHtml(ticket.estado)}</span></div>
+                <h3 class="room">${escapeHtml(ticket.sala)}</h3>
+                <p class="problem"><strong>${escapeHtml(ticket.equipo)}:</strong> ${escapeHtml(ticket.problema)}</p>
+                ${ticket.detalle ? `<p class="detail">${escapeHtml(ticket.detalle)}</p>` : ''}
+                <div class="ticket-foot"><span class="date">${formatDate(ticket.fecha)}</span><select class="state-select" aria-label="Cambiar estado del aviso ${ticket.id}"><option selected>Pendiente</option><option>En proceso</option><option>Resuelto</option></select></div>`;
+            return article;
+        }
+
+        async function updateTicket(card, state) {
+            const response = await fetch('/Tecnico/ActualizarEstado', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'RequestVerificationToken': token },
+                body: new URLSearchParams({ id: card.dataset.ticketId, estado: state })
+            });
+            if (!response.ok) throw new Error('No se pudo actualizar el aviso.');
+        }
+
+        document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => {
+            activeFilter = button.dataset.filter;
+            document.querySelectorAll('.filter').forEach(item => item.classList.toggle('active', item === button));
+            applyFilter();
+        }));
+
+        document.addEventListener('change', async event => {
+            if (!event.target.matches('.state-select')) return;
+            const card = event.target.closest('.ticket');
+            try {
+                await updateTicket(card, event.target.value);
+                card.dataset.status = event.target.value;
+                card.querySelector('.status').className = `status ${statusClass(event.target.value)}`;
+                card.querySelector('.status').textContent = event.target.value;
+                updateMetrics();
+                applyFilter();
+            } catch (error) {
+                alert(error.message);
+            }
+        });
+
+        const connection = new signalR.HubConnectionBuilder().withUrl('/soporteHub').withAutomaticReconnect().build();
+        connection.on('TicketCreado', ticket => {
+            emptyState?.remove();
+            list.prepend(createTicketCard(ticket));
+            updateMetrics();
+            applyFilter();
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = `Nuevo aviso en ${ticket.sala}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4500);
+        });
+        connection.on('TicketActualizado', update => {
+            const card = document.querySelector(`[data-ticket-id="${update.id}"]`);
+            if (!card) return;
+            card.dataset.status = update.estado;
+            card.querySelector('.status').className = `status ${statusClass(update.estado)}`;
+            card.querySelector('.status').textContent = update.estado;
+            card.querySelector('.state-select').value = update.estado;
+            updateMetrics();
+            applyFilter();
+        });
+        connection.start().catch(error => console.error('SignalR no disponible:', error));
+    </script>
+</body>
+</html>
